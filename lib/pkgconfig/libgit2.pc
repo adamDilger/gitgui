@@ -1,0 +1,13 @@
+prefix="/Users/adamdilger/dev/gitgui"
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libgit2
+Description: The git library, take 2
+Version: 0.27.4
+
+Libs: -L${libdir} -lgit2
+Libs.private: -framework CoreFoundation -framework Security -lz -L/usr/lib -liconv
+Requires.private: 
+
+Cflags: -I${includedir}

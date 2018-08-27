@@ -1,0 +1,1 @@
+g++ -I/include/git2/ -framework CoreFoundation -framework Security -lcurl -lz -liconv -lssh2 -lgit2 main.c
