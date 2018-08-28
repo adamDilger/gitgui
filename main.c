@@ -1,8 +1,15 @@
-#include <curses.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <curses.h>
+#include <menu.h>
+
 #include "include/git2.h"
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#define CTRLD 	4
 
 typedef struct node {
   git_reference *ref;
@@ -11,10 +18,11 @@ typedef struct node {
 
 int main()
 {	
-  initscr();
+  char cwd[1024];
+  getcwd(cwd, sizeof(cwd));
 
   git_repository *repo;
-  int error = git_repository_open(&repo, "/Users/adamdilger/rxp/payg/");
+  int error = git_repository_open(&repo, cwd);
 
   git_branch_iterator *out;
   git_reference *ref;
@@ -22,10 +30,12 @@ int main()
   const char *name;
 
   node *list = NULL; 
+  int count = 0;
 
   git_branch_iterator_new(&out, repo, GIT_BRANCH_LOCAL);
 
   while (git_branch_next(&ref, &out_type, out) == 0) {
+    count++;
     node *next = (node *)malloc(sizeof(struct node));
     next->next = list;
     next->ref = ref;
@@ -33,18 +43,67 @@ int main()
     list = next;
   }
 
-  node *tmp = list;
+  initscr();
+  cbreak();
+  //noecho();
+  keypad(stdscr, TRUE);
 
-  while (tmp != NULL) {
+  ITEM **my_items;
+  int c;
+  MENU *my_menu;
+  int n_choices, i;
+  ITEM *cur_item;
+
+  n_choices = count;
+  my_items = (ITEM **)calloc(n_choices + 1, sizeof(ITEM *));
+
+  node *tmp = list; 
+
+  for(int i = 0; i < n_choices; i++) {
     git_branch_name(&name, tmp->ref);
+    my_items[i] = new_item(name, "");
     tmp = tmp->next;
-
-    /* printf("%s\n", name); */
-    printw("%s\n", name);
   }
 
-  //refresh();
-  getch();
+  my_items[n_choices] = (ITEM *)NULL;
+
+  my_menu = new_menu((ITEM **)my_items);
+  mvprintw(LINES - 2, 0, "q to Exit");
+  post_menu(my_menu);
+  refresh();
+
+  /* node *tmp = list; */
+
+  /* while (tmp != NULL) { */
+  /*   git_branch_name(&name, tmp->ref); */
+  /*   tmp = tmp->next; */
+
+  /*   /1* printf("%s\n", name); *1/ */
+  /*   printw("%s\n", name); */
+  /* } */
+
+  while((c = getch()) != 'q')
+  {   
+    switch(c)
+    {	
+      case 106:
+        menu_driver(my_menu, REQ_DOWN_ITEM);
+        break;
+      case 107:
+        menu_driver(my_menu, REQ_UP_ITEM);
+        break;
+      case 10: 
+        move(20, 0);
+        clrtoeol();
+        mvprintw(20, 0, "Item selected is : %s", item_name(current_item(my_menu)));
+        pos_menu_cursor(my_menu);
+        break;
+    }
+  }
+
+  unpost_menu(my_menu);
+  for (i = 0; i < n_choices; ++i) free_item(my_items[i]);
+  free_menu(my_menu);
   endwin();
 
   git_repository_free(repo);
