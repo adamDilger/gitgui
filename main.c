@@ -1,128 +1,132 @@
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <curses.h>
 #include <menu.h>
 
-#include "include/git2.h"
+#include "git.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #define CTRLD 	4
 
-typedef struct node {
-  git_reference *ref;
-  struct node *next;
-} node;
-
-void checkout(char *branch) {
-}
-
 int main()
 {	
-  char cwd[1024];
-  getcwd(cwd, sizeof(cwd));
+
+  //get git branches
+  char dir[1024];
+  getcwd(dir, sizeof(dir));
 
   git_repository *repo;
-  int error = git_repository_open(&repo, cwd);
 
-  git_branch_iterator *out;
-  git_reference *ref;
-  git_branch_t out_type;
-  const char *name;
+  if (initGitRepo(&repo, dir) < 0) return -1;
 
   node *list = NULL; 
-  int count = 0;
+  int branch_count = getAllBranches(repo, &list);
 
-  git_branch_iterator_new(&out, repo, GIT_BRANCH_LOCAL);
-
-  while (git_branch_next(&ref, &out_type, out) == 0) {
-    count++;
-    node *next = (node *)malloc(sizeof(struct node));
-    next->next = list;
-    next->ref = ref;
-
-    list = next;
-  }
-
-  initscr();
-  cbreak();
-  noecho();
-  keypad(stdscr, TRUE);
-
+  //setup menu
   ITEM **my_items;
-  int c;
   MENU *my_menu;
-  int n_choices, i;
   ITEM *cur_item;
 
-  n_choices = count;
-  my_items = (ITEM **)calloc(n_choices + 1, sizeof(ITEM *));
+  my_items = (ITEM **)calloc(branch_count + 1, sizeof(ITEM *));
 
+  const char *name;
   node *tmp = list; 
 
-  for(int i = 0; i < n_choices; i++) {
+  for(int i = 0; i < branch_count; i++) {
     git_branch_name(&name, tmp->ref);
     my_items[i] = new_item(name, "");
     tmp = tmp->next;
   }
 
-  my_items[n_choices] = (ITEM *)NULL;
-
+  my_items[branch_count] = (ITEM *)NULL;
   my_menu = new_menu((ITEM **)my_items);
-  mvprintw(LINES - 2, 0, "q to Exit");
-  post_menu(my_menu);
+
+  //setup/draw to screen
+  initscr();
+  cbreak();
+  noecho();
+  start_color();
+  init_pair(1, COLOR_GREEN, COLOR_BLUE);
+  init_pair(2, COLOR_GREEN, COLOR_GREEN);
   refresh();
 
-  /* node *tmp = list; */
+  //setup windows
+  WINDOW *w_branch = newwin(LINES / 2, COLS, 0, 0);
+  wbkgd(w_branch, COLOR_PAIR(1));
+  set_menu_win(my_menu, w_branch);
+  //wrefresh(w_branch);
 
-  /* while (tmp != NULL) { */
-  /*   git_branch_name(&name, tmp->ref); */
-  /*   tmp = tmp->next; */
+  WINDOW *w_stat = newwin(LINES / 2, COLS, LINES / 2, 0);
+  wbkgd(w_stat, COLOR_PAIR(2));
 
-  /*   /1* printf("%s\n", name); *1/ */
-  /*   printw("%s\n", name); */
-  /* } */
-
+  post_menu(my_menu);
+  wrefresh(w_branch);
+  wrefresh(w_stat);
+        
+  //wait for user unput
   int stop = 0;
+  int c;
+
+  git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
+  opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+
+  git_object *commit_master = NULL;
+  git_revparse_single(&commit_master, repo, "master");
+
+  git_tree *master_tree;
+  git_commit_tree(&master_tree, (git_commit *)commit_master);
 
   while(!stop)
   {   
     c = getch();
 
-    if (c == 106) {
+    if (c == 'j') {
       menu_driver(my_menu, REQ_DOWN_ITEM);
-    } else if (c == 107) {
+      wrefresh(w_branch);
+    } else if (c == 'k') {
       menu_driver(my_menu, REQ_UP_ITEM);
-    } else if (c == 'C') {
-      git_object *tree = NULL;
-      git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
-      opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+      wrefresh(w_branch);
 
       const char *branch_name = item_name(current_item(my_menu));
-      char *head_name = "refs/heads/";
 
-      git_revparse_single(&tree, repo, branch_name);
-      git_checkout_tree(repo, tree, &opts);
+      git_object *commit_tree = NULL;
+      git_revparse_single(&commit_tree, repo, branch_name);
 
-      char* strA = calloc(strlen(branch_name) + strlen(head_name) + 1, sizeof(char));
-      sprintf(strA,"%s%s",head_name, branch_name);
+      git_tree *tree;
+      git_commit_tree(&tree, (git_commit *)commit_tree);
 
-      git_repository_set_head(repo, strA);
-      git_object_free(tree);
+      git_diff *diff;
 
-      /* move(20, 0); */
-      /* clrtoeol(); */
-      /* mvprintw(20, 0, "Item selected is : %s", item_name(current_item(my_menu))); */
-      /* pos_menu_cursor(my_menu); */
+      git_diff_tree_to_tree(&diff, 
+          repo, 
+          master_tree, 
+          tree,
+          NULL);
 
+      int num = git_diff_num_deltas(diff);
+      char output[100];
+      sprintf(output, "stats: %d", num);
+
+      wprintw(w_stat, output);
+      wrefresh(w_stat);
+
+    } else if (c == 'q') {
+      stop = 1;
+    } else if (c == 'C') {
+      const char *branch_name = item_name(current_item(my_menu));
+      checkoutBranch(repo, branch_name); 
       stop = 1;
     }
   }
 
+  //free memory
   unpost_menu(my_menu);
-  for (i = 0; i < n_choices; ++i) free_item(my_items[i]);
+  for (int i = 0; i < branch_count; ++i) free_item(my_items[i]);
+
+  for (node *tmp = list; tmp != NULL; tmp = tmp->next) 
+    git_reference_free(tmp->ref);
+
   free_menu(my_menu);
   endwin();
 
