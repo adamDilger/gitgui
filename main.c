@@ -87,37 +87,31 @@ int main()
 
   while((c = getch()) != 'q')
   {   
-    switch(c)
-    {	
-      case 106:
-        menu_driver(my_menu, REQ_DOWN_ITEM);
-        break;
-      case 107:
-        menu_driver(my_menu, REQ_UP_ITEM);
-        break;
-      case 10: 
-        git_object *treeish = NULL;
-        git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
-        opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+    if (c == 106) {
+      menu_driver(my_menu, REQ_DOWN_ITEM);
+    } else if (c == 107) {
+      menu_driver(my_menu, REQ_UP_ITEM);
+    } else if (c == 10) {
+      git_object *tree = NULL;
+      git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
+      opts.checkout_strategy = GIT_CHECKOUT_SAFE;
 
-        char *branch_name = item_name(current_item(my_menu));
-        char *head_name = "refs/heads/"
+      const char *branch_name = item_name(current_item(my_menu));
+      char *head_name = "refs/heads/";
 
-        git_revparse_single(&treeish, repo, branch_name);
-        git_checkout_tree(repo, treeish, &opts);
+      git_revparse_single(&tree, repo, branch_name);
+      git_checkout_tree(repo, tree, &opts);
 
-        char* strA = calloc(strlen(branch_name) + strlen(head_name) + 1, sizeof(char));
-        sprintf(strA,"%s%s",head_name, branch_name);
+      char* strA = calloc(strlen(branch_name) + strlen(head_name) + 1, sizeof(char));
+      sprintf(strA,"%s%s",head_name, branch_name);
 
-        git_repository_set_head(g_repo, strA);
-        git_object_free(treeish);
+      git_repository_set_head(repo, strA);
+      git_object_free(tree);
 
-        move(20, 0);
-        clrtoeol();
-        mvprintw(20, 0, "Item selected is : %s", item_name(current_item(my_menu)));
-        pos_menu_cursor(my_menu);
-
-        break;
+      move(20, 0);
+      clrtoeol();
+      mvprintw(20, 0, "Item selected is : %s", item_name(current_item(my_menu)));
+      pos_menu_cursor(my_menu);
     }
   }
 
