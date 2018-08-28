@@ -85,13 +85,17 @@ int main()
   /*   printw("%s\n", name); */
   /* } */
 
-  while((c = getch()) != 'q')
+  int stop = 0;
+
+  while(!stop)
   {   
+    c = getch();
+
     if (c == 106) {
       menu_driver(my_menu, REQ_DOWN_ITEM);
     } else if (c == 107) {
       menu_driver(my_menu, REQ_UP_ITEM);
-    } else if (c == 10) {
+    } else if (c == 'C') {
       git_object *tree = NULL;
       git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
       opts.checkout_strategy = GIT_CHECKOUT_SAFE;
@@ -108,10 +112,12 @@ int main()
       git_repository_set_head(repo, strA);
       git_object_free(tree);
 
-      move(20, 0);
-      clrtoeol();
-      mvprintw(20, 0, "Item selected is : %s", item_name(current_item(my_menu)));
-      pos_menu_cursor(my_menu);
+      /* move(20, 0); */
+      /* clrtoeol(); */
+      /* mvprintw(20, 0, "Item selected is : %s", item_name(current_item(my_menu))); */
+      /* pos_menu_cursor(my_menu); */
+
+      stop = 1;
     }
   }
 
