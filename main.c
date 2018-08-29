@@ -47,21 +47,25 @@ int main()
   cbreak();
   noecho();
   start_color();
-  init_pair(1, COLOR_GREEN, COLOR_BLUE);
-  init_pair(2, COLOR_GREEN, COLOR_GREEN);
+  init_pair(1, COLOR_GREEN, COLOR_RED);
+  init_pair(2, COLOR_GREEN, COLOR_BLUE);
   refresh();
 
   //setup windows
   WINDOW *w_branch = newwin(LINES / 2, COLS, 0, 0);
   wbkgd(w_branch, COLOR_PAIR(1));
   set_menu_win(my_menu, w_branch);
-  //wrefresh(w_branch);
 
-  WINDOW *w_stat = newwin(LINES / 2, COLS, LINES / 2, 0);
+  WINDOW *w_stat_cont = newwin(LINES / 2, COLS, LINES / 2, 0);
+  box(w_stat_cont, '*', '*');
+  wbkgd(w_stat_cont, COLOR_PAIR(2));
+
+  WINDOW *w_stat = newwin((LINES / 2) - 2, COLS - 2, LINES / 2 + 1, 1);
   wbkgd(w_stat, COLOR_PAIR(2));
 
   post_menu(my_menu);
-  wrefresh(w_branch);
+  wrefresh(w_branch); 
+  wrefresh(w_stat_cont);
   wrefresh(w_stat);
         
   //wait for user unput
@@ -79,6 +83,7 @@ int main()
 
   while(!stop)
   {   
+
     c = getch();
 
     if (c == 'j') {
@@ -97,19 +102,18 @@ int main()
       git_commit_tree(&tree, (git_commit *)commit_tree);
 
       git_diff *diff;
+      git_diff_tree_to_tree(&diff, repo, master_tree, tree, NULL);
 
-      git_diff_tree_to_tree(&diff, 
-          repo, 
-          master_tree, 
-          tree,
-          NULL);
+      git_diff_stats *stats;
+      git_diff_get_stats(&stats, diff);
 
-      int num = git_diff_num_deltas(diff);
-      char output[100];
-      sprintf(output, "stats: %d", num);
+      git_buf buf = GIT_BUF_INIT_CONST(NULL, 0);
+      git_diff_stats_to_buf(&buf, stats, GIT_DIFF_STATS_FULL, COLS - 30);
 
-      wprintw(w_stat, output);
-      wrefresh(w_stat);
+      if (buf.ptr != NULL) {
+        mvwprintw(w_stat, 0, 0, buf.ptr);
+        wrefresh(w_stat);
+      }
 
     } else if (c == 'q') {
       stop = 1;

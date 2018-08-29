@@ -42,16 +42,3 @@ int checkoutBranch(git_repository *repo, const char *branch_name) {
 
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
