@@ -6,14 +6,10 @@
 
 #include "git.h"
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
-#define CTRLD 	4
-
 void printDiff();
 
 int main()
 {	
-
   //get git branches
   char dir[1024];
   getcwd(dir, sizeof(dir));
@@ -53,16 +49,19 @@ int main()
   refresh();
 
   //setup windows
-  WINDOW *w_branch = newwin(LINES / 2, COLS, 0, 0);
-  mvwprintw(w_branch, (LINES/2) - 1, 5, "C to Checkout, D to delete...");
+  WINDOW *w_branch = newwin(LINES, COLS, 0, 0);
+  mvwprintw(w_branch, LINES - 1, 5, "q to quit, C to Checkout, D to delete...");
   set_menu_win(my_menu, w_branch);
 
-  WINDOW *w_stat_cont = newwin(LINES / 2, COLS, LINES / 2, 0);
+  int stat_h = LINES - branch_count - 3;
+  int stat_y = branch_count + 2;
+
+  WINDOW *w_stat_cont = newwin(stat_h, COLS, stat_y, 0);
   box(w_stat_cont, '|', '-');
   wprintw(w_stat_cont, "** DIFF **");
   wbkgd(w_stat_cont, COLOR_PAIR(1));
 
-  WINDOW *w_stat = newwin((LINES / 2) - 2, COLS - 2, LINES / 2 + 1, 1);
+  WINDOW *w_stat = newwin(stat_h - 2, COLS - 2, stat_y + 1, 1);
   wbkgd(w_stat, COLOR_PAIR(1));
 
   post_menu(my_menu);
@@ -80,7 +79,7 @@ int main()
     c = getch();
 
     if (c == 'j') {
-      menu_driver(my_menu, REQ_DOWN_ITEM);
+      if (menu_driver(my_menu, REQ_DOWN_ITEM) != 0) continue;
       wrefresh(w_branch);
 
       const char *branch_name = item_name(current_item(my_menu));
@@ -93,7 +92,7 @@ int main()
       wrefresh(w_stat);
 
     } else if (c == 'k') {
-      menu_driver(my_menu, REQ_UP_ITEM);
+      if (menu_driver(my_menu, REQ_UP_ITEM) != 0) continue;
       wrefresh(w_branch);
 
       const char *branch_name = item_name(current_item(my_menu));
@@ -110,6 +109,10 @@ int main()
     } else if (c == 'C') {
       const char *branch_name = item_name(current_item(my_menu));
       checkoutBranch(repo, branch_name); 
+      stop = 1;
+    } else if (c == 'D') {
+      const char *branch_name = item_name(current_item(my_menu));
+      deleteBranch(&list, branch_name); 
       stop = 1;
     }
   }

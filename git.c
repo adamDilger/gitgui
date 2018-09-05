@@ -71,3 +71,33 @@ void diffMaster(git_repository *repo, char **out, const char *branch_name, int s
 
   (*out) = buf.ptr;
 }
+
+int deleteBranch(node **list, char *branch_name) {
+  node **tmp = list;
+  const char *name;
+  
+  while ((*tmp) != NULL) {
+    git_branch_name(&name, (*tmp)->ref);
+
+    if (strcmp(name, branch_name) == 0) {
+      git_branch_delete((*tmp)->ref);
+      node *del = (*tmp);
+
+      (*tmp) = (*tmp)->next;
+      git_reference_free(del->ref);
+      free(del);
+      break;
+    }
+    tmp = &((*tmp)->next);
+  }
+
+  return 0;
+}
+
+
+
+
+
+
+
+
